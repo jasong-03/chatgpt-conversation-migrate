@@ -1,0 +1,33 @@
+# Dependencies & build
+node_modules/
+dist/
+*.zip
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Env / logs
+.env
+.env.*
+*.log
+npm-debug.log*
+
+# Local migrate secrets (real credentials — NEVER commit)
+secrets/**
+!secrets/
+!secrets/*.example
+
+# Runtime migrate state (share URLs, progress, screenshots)
+migrate-state/
+migrate-state/**
+
+# Playwright / browser artifacts
+playwright-report/
+test-results/
+.blob-report/
+**/fail-*.png
+**/debug-share.png
