@@ -1,17 +1,17 @@
 # Local migrate CLI
 
-## Entry
+## Entry point
 
 ```bash
 node tools/local-migrate/migrate.mjs [options]
-# or from repo root:
+# or from the repo root:
 npm run migrate
 npm run migrate:dry
 npm run migrate:share
 npm run migrate:recv
 ```
 
-Full docs: [../../README.md](../../README.md)
+Full documentation: [../../README.md](../../README.md)
 
 ## Modules
 

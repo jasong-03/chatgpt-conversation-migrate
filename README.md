@@ -1,31 +1,31 @@
 # ChatGPT Conversation Migrate
 
-Local CLI chuyển hội thoại ChatGPT **từ account nguồn (nick 1) sang account đích (nick 2)**:
+Local CLI to move ChatGPT conversations **from a source account (account 1) to a target account (account 2)**:
 
-1. Nick 1 tạo **share link** (curl / session)  
-2. Nick 2 mở share → claim vào history (Playwright + cookies)
+1. Account 1 creates **share links** (via curl / session)  
+2. Account 2 opens each share → claims it into history (Playwright + cookies)
 
-> Không liên kết với OpenAI. Dùng API web không chính thức + browser automation.  
-> Rủi ro rate-limit / captcha / giới hạn account. **Chỉ dùng account bạn sở hữu.**
-
----
-
-## Làm được / không làm được
-
-| Làm được | Không làm được |
-|----------|----------------|
-| List hội thoại nick 1 | Merge official 2 account |
-| Tạo share hàng loạt | Import native full sidebar (export ZIP official) |
-| Claim share → chat mới trong history nick 2 | Chuyển Plus, memories, GPTs, custom instructions |
-| Resume sau lỗi (`migrate-state/`) | Bypass captcha / “verify human” |
-| Chạy theo lô + nghỉ giữa lô | Đảm bảo API ChatGPT không đổi |
-
-**Official OpenAI** (khác tool này): Export data → upload JSON làm **file reference** trong 1 chat mới — không tạo từng thread sidebar.  
-Docs: [Transfer exported conversations](https://help.openai.com/en/articles/9106926-transfer-exported-conversations-between-chatgpt-accounts).
+> Not affiliated with OpenAI. Uses unofficial web APIs + browser automation.  
+> Risk of rate limits, captchas, and account restrictions. **Use only with accounts you own.**
 
 ---
 
-## Luồng
+## What it does / does not do
+
+| Does | Does not |
+|------|----------|
+| List conversations on account 1 | Officially merge two accounts |
+| Bulk-create share links | Native full-sidebar import (official export ZIP) |
+| Claim shares → new chats in account 2 history | Transfer Plus, memories, GPTs, custom instructions |
+| Resume after failures (`migrate-state/`) | Bypass captcha / “verify you are human” |
+| Batch runs with pauses between batches | Guarantee ChatGPT APIs never change |
+
+**Official OpenAI path** (different from this tool): Export data → upload JSON as a **file reference** in a new chat — does not recreate separate sidebar threads.  
+See: [Transfer exported conversations](https://help.openai.com/en/articles/9106926-transfer-exported-conversations-between-chatgpt-accounts).
+
+---
+
+## Flow
 
 ```text
 Account 1                              Account 2
@@ -41,92 +41,92 @@ secrets/source.curl                    secrets/target.cookies
 
 ---
 
-## Yêu cầu
+## Requirements
 
 - Node.js 18+
-- Google Chrome (script ưu tiên Playwright channel `chrome`)
-- Hai account ChatGPT bạn kiểm soát
+- Google Chrome (script prefers Playwright `chrome` channel)
+- Two ChatGPT accounts you control
 
-## Cài đặt
+## Install
 
 ```bash
 git clone https://github.com/jasong-03/chatgpt-conversation-migrate.git
 cd chatgpt-conversation-migrate
 npm install
-# postinstall cài Chromium; Chrome thật sẽ được ưu tiên nếu có
+# postinstall installs Chromium; real Chrome is preferred when available
 ```
 
 ---
 
-## Secrets (không commit)
+## Secrets (never commit)
 
-`.gitignore` chặn `secrets/**` (trừ `*.example`) và `migrate-state/`.
+`.gitignore` blocks `secrets/**` (except `*.example`) and `migrate-state/`.
 
 ### Account 1 → `secrets/source.curl`
 
-1. Login nick nguồn trên [chatgpt.com](https://chatgpt.com)  
-2. DevTools → **Network** → request `conversations`  
-3. Right-click → **Copy as cURL**  
-4. Lưu:
+1. Sign in to the **source** account on [chatgpt.com](https://chatgpt.com)  
+2. DevTools → **Network** → find a `conversations` request  
+3. Right-click → **Copy** → **Copy as cURL**  
+4. Save:
 
 ```bash
 cp secrets/source.curl.example secrets/source.curl
-# dán full curl vào file
+# paste the full curl into the file
 ```
 
-Cần `Authorization: Bearer …` và/hoặc `Cookie: …`. Token hết hạn → copy curl mới, chạy lại (resume skip item đã ok).
+Needs `Authorization: Bearer …` and/or `Cookie: …`. When the token expires → copy a fresh curl and re-run (resume skips items already OK).
 
 ### Account 2 → `secrets/target.cookies`
 
-1. Login nick đích (nên profile Chrome riêng)  
-2. DevTools → Network → copy header **`cookie`** (cả dòng)  
+1. Sign in to the **target** account (prefer a separate Chrome profile)  
+2. DevTools → Network → copy the full **`cookie`** request header  
 
 ```bash
 cp secrets/target.cookies.example secrets/target.cookies
-# dán cookie header (1 dòng) hoặc JSON array Playwright
+# paste cookie header (one line) or a Playwright JSON array
 ```
 
-Cần session login (ví dụ cookie `__Secure-next-auth.session-token` / tương đương).  
-**Không** dán secret vào chat / PR / commit.
+Must include a logged-in session cookie (e.g. `__Secure-next-auth.session-token` or equivalent).  
+**Do not** paste secrets into chat, PRs, or commits.
 
 ---
 
-## Chạy
+## Usage
 
 ### Smoke test
 
 ```bash
 npm run migrate:dry
-# hoặc
+# or
 node tools/local-migrate/migrate.mjs --dry-run --max 5
 ```
 
-Chỉ list hội thoại nick 1 — không share, không browser.
+Lists account 1 conversations only — no share, no browser.
 
-### Share (nick 1)
+### Share (account 1)
 
 ```bash
-node tools/local-migrate/migrate.mjs --share-only --max 1   # thử 1
-npm run migrate:share                                         # tất cả
+node tools/local-migrate/migrate.mjs --share-only --max 1   # try one
+npm run migrate:share                                       # all
 ```
 
-### Receive (nick 2)
+### Receive (account 2)
 
 ```bash
-node tools/local-migrate/migrate.mjs --receive-only --max 1  # thử 1 (headed)
+node tools/local-migrate/migrate.mjs --receive-only --max 1  # try one (headed)
 npm run migrate:recv
 ```
 
 ### Full pipeline
 
 ```bash
-# An toàn (ít rate-limit)
+# Safer (fewer rate limits)
 node tools/local-migrate/migrate.mjs \
   --delay-ms 5000 \
   --batch-size 5 \
   --batch-pause-ms 300000
 
-# Nhanh hơn khi không bị limit
+# Faster when not rate-limited
 node tools/local-migrate/migrate.mjs \
   --delay-ms 2500 \
   --batch-size 10 \
@@ -135,77 +135,77 @@ node tools/local-migrate/migrate.mjs \
 
 ### npm scripts
 
-| Script | Việc |
-|--------|------|
-| `npm run migrate:dry` | Dry-run max 10 |
-| `npm run migrate:share` | Chỉ share |
-| `npm run migrate:recv` | Chỉ receive |
+| Script | Action |
+|--------|--------|
+| `npm run migrate:dry` | Dry-run, max 10 |
+| `npm run migrate:share` | Share only |
+| `npm run migrate:recv` | Receive only |
 | `npm run migrate` | Share + receive |
-| `npm run check` | Syntax check CLI |
+| `npm run check` | Syntax-check CLI modules |
 
 ---
 
-## Tham số CLI
+## CLI options
 
-| Flag | Mặc định | Ý nghĩa |
-|------|----------|---------|
-| `--source <path>` | `secrets/source.curl` | Curl nick 1 |
-| `--target <path>` | `secrets/target.cookies` | Cookies nick 2 |
-| `--max <n>` | all | Giới hạn số chat / run |
-| `--offset <n>` | `0` | Offset list |
-| `--delay-ms <n>` | `4000` | Nghỉ giữa item (+ jitter) |
-| `--batch-size <n>` | `5` | Item mỗi lô |
-| `--batch-pause-ms <n>` | `300000` | Nghỉ giữa lô (5 phút) |
-| `--message <text>` | `hi` | Tin claim sau mở share |
-| `--headless` | off | Browser ẩn (dễ dính CF) |
-| `--dry-run` | | Chỉ list |
-| `--share-only` | | Chỉ tạo share |
-| `--receive-only` | | Chỉ claim từ `shares.json` |
-| `--help` | | Help |
+| Flag | Default | Meaning |
+|------|---------|---------|
+| `--source <path>` | `secrets/source.curl` | Account 1 curl |
+| `--target <path>` | `secrets/target.cookies` | Account 2 cookies |
+| `--max <n>` | all | Cap conversations this run |
+| `--offset <n>` | `0` | List offset |
+| `--delay-ms <n>` | `4000` | Pause between items (+ jitter) |
+| `--batch-size <n>` | `5` | Items per batch |
+| `--batch-pause-ms <n>` | `300000` | Pause between batches (5 min) |
+| `--message <text>` | `hi` | Claim message after opening share |
+| `--headless` | off | Headless browser (more CF friction) |
+| `--dry-run` | | List only |
+| `--share-only` | | Create shares only |
+| `--receive-only` | | Claim from `shares.json` only |
+| `--help` | | Show help |
 
 ---
 
 ## State & resume
 
-| File | Nội dung |
+| File | Contents |
 |------|----------|
-| `migrate-state/shares.json` | Share URL đã tạo |
-| `migrate-state/progress.json` | ok/fail từng conversation |
-| `migrate-state/fail-*.png` | Screenshot lỗi receive |
+| `migrate-state/shares.json` | Created share URLs |
+| `migrate-state/progress.json` | Per-conversation ok/fail |
+| `migrate-state/fail-*.png` | Receive failure screenshots |
 
-- **ok** → skip khi chạy lại  
-- **fail** → thử lại  
-- `Ctrl+C` rồi chạy lại cùng lệnh là được  
+- **ok** → skipped on re-run  
+- **fail** → retried  
+- `Ctrl+C` then re-run the same command is safe  
 
 ---
 
-## Rate-limit
+## Rate limits
 
-Có thể gặp:
+You may see:
 
 - *Too many requests* / *making requests too quickly*  
-- Modal history rate-limit  
-- Unusual activity / Verify human  
+- History rate-limit modal  
+- Unusual activity / Verify you are human  
 
-**Khi bị limit:** dừng → chờ 10–15+ phút → `npm run migrate:recv` (hoặc full).  
-Tăng `--delay-ms` / `--batch-pause-ms`. Không chạy 2 process song song.
+**If limited:** stop → wait 10–15+ minutes → `npm run migrate:recv` (or full).  
+Increase `--delay-ms` / `--batch-pause-ms`. Do not run two processes in parallel.
 
 ---
 
 ## Troubleshooting
 
-| Lỗi | Xử lý |
-|-----|--------|
-| Curl parse fail | Dán full Copy as cURL (comment `#` phía trên được) |
-| `401` / session | Copy lại `source.curl` |
-| Login trên receive | Cookie nick 2 hết hạn — copy lại |
-| Share `ERR_HTTP…` | Chạy headed; nghỉ rate-limit; dùng Chrome |
-| Rate-limit modal | Script cố đợi; fatal → nghỉ rồi resume |
-| Mất mạng | Re-run (resume) |
+| Issue | Fix |
+|-------|-----|
+| Curl parse fail | Paste full Copy as cURL (`#` comments above are fine) |
+| `401` / session | Refresh `source.curl` |
+| Login on receive | Account 2 cookies expired — copy again |
+| Share `ERR_HTTP…` | Run headed; wait out rate limit; use Chrome |
+| Rate-limit modal | Script tries to wait; if fatal → pause then resume |
+| Network drop | Re-run (resume) |
 
 ---
 
-## Cấu trúc repo
+## Repo layout
 
 ```text
 .
@@ -235,16 +235,16 @@ Tăng `--delay-ms` / `--batch-pause-ms`. Không chạy 2 process song song.
 
 ---
 
-## Bảo mật
+## Security
 
-- Secrets chỉ trên máy bạn  
-- Không commit `source.curl` / `target.cookies` / `migrate-state/`  
-- Xoá/rotate session sau khi xong nếu cần  
+- Keep secrets only on your machine  
+- Never commit `source.curl`, `target.cookies`, or `migrate-state/`  
+- Delete/rotate sessions after you’re done if needed  
 
 ---
 
-## License / trách nhiệm
+## License / responsibility
 
-Tool dùng API/UI ChatGPT không chính thức. Người dùng tự chịu trách nhiệm theo điều khoản OpenAI. Không đảm bảo hoạt động khi OpenAI đổi backend.
+This tool uses unofficial ChatGPT APIs and UI automation. You are responsible for compliance with OpenAI’s terms. No guarantee the tool keeps working when OpenAI changes the backend.
 
 Repo: https://github.com/jasong-03/chatgpt-conversation-migrate
