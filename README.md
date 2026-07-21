@@ -1,4 +1,4 @@
-# Conversation Move GPT
+# ChatGPT Conversation Migrate
 
 Local CLI chuyển hội thoại ChatGPT **từ account nguồn (nick 1) sang account đích (nick 2)**:
 
@@ -50,8 +50,8 @@ secrets/source.curl                    secrets/target.cookies
 ## Cài đặt
 
 ```bash
-git clone https://github.com/jasong-03/conversation-move-gpt.git
-cd conversation-move-gpt
+git clone https://github.com/jasong-03/chatgpt-conversation-migrate.git
+cd chatgpt-conversation-migrate
 npm install
 # postinstall cài Chromium; Chrome thật sẽ được ưu tiên nếu có
 ```
@@ -247,4 +247,4 @@ Tăng `--delay-ms` / `--batch-pause-ms`. Không chạy 2 process song song.
 
 Tool dùng API/UI ChatGPT không chính thức. Người dùng tự chịu trách nhiệm theo điều khoản OpenAI. Không đảm bảo hoạt động khi OpenAI đổi backend.
 
-Repo: https://github.com/jasong-03/conversation-move-gpt
+Repo: https://github.com/jasong-03/chatgpt-conversation-migrate
