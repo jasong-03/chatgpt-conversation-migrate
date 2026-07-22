@@ -3,6 +3,7 @@ import path from "node:path";
 import { chromium } from "playwright";
 import { filterCookiesForPlaywright, parseTargetCookies } from "./cookies.js";
 import { CHATGPT_ORIGIN, DEFAULT_USER_AGENT, STATE_DIR } from "./paths.js";
+import { assignClaimedChatToProject, loadProjectMap } from "./projects.js";
 import { loadProgress, loadShares, saveProgress } from "./state.js";
 import { jitter, sleep, waitBetweenItems } from "./util.js";
 
@@ -30,6 +31,11 @@ function isRiskPage(text) {
 
 function receiveKey(item) {
   return item.conversationId || item.shareId || item.shareUrl;
+}
+
+function conversationIdFromUrl(url) {
+  const match = String(url || "").match(/\/c\/([0-9a-f-]{10,})/i);
+  return match?.[1] || null;
 }
 
 async function launchBrowser(headless) {
@@ -244,6 +250,8 @@ export async function runReceivePhase(options, sharesInput) {
   }
 
   const progress = await loadProgress();
+  const projectMapFile = await loadProjectMap();
+  const projectMap = projectMapFile.map || {};
   const cookieRaw = await readFile(options.targetCookies, "utf8");
   const cookies = parseTargetCookies(cookieRaw);
   const { filtered, dropped } = filterCookiesForPlaywright(cookies);
@@ -285,6 +293,28 @@ export async function runReceivePhase(options, sharesInput) {
       console.log(`[recv] ${index + 1}/${shares.length}: ${item.title || item.shareUrl}`);
       try {
         const result = await claimOneShare(page, item, options);
+        const claimedConversationId = conversationIdFromUrl(result.finalUrl);
+
+        // Resolve target project: share record or source project map
+        let targetProjectId = item.targetProjectId || null;
+        if (!targetProjectId && item.projectId && projectMap[item.projectId]?.targetProjectId) {
+          targetProjectId = projectMap[item.projectId].targetProjectId;
+        }
+
+        let assignedProjectId = null;
+        if (claimedConversationId && targetProjectId) {
+          try {
+            await assignClaimedChatToProject(options, {
+              conversationId: claimedConversationId,
+              targetProjectId,
+            });
+            assignedProjectId = targetProjectId;
+            console.log(`  → assigned to project ${targetProjectId}`);
+          } catch (assignError) {
+            console.warn(`  ! project assign failed: ${assignError.message}`);
+          }
+        }
+
         progress.received[key] = {
           ok: true,
           at: new Date().toISOString(),
@@ -292,6 +322,11 @@ export async function runReceivePhase(options, sharesInput) {
           title: item.title || null,
           finalUrl: result.finalUrl,
           mode: result.mode,
+          claimedConversationId,
+          projectId: item.projectId || null,
+          projectName: item.projectName || null,
+          targetProjectId: assignedProjectId || targetProjectId,
+          assignedToProject: Boolean(assignedProjectId),
         };
         await saveProgress(progress);
         okCount += 1;

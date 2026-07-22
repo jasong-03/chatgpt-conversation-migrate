@@ -35,24 +35,44 @@ export async function saveShares(sharesFile) {
   });
 }
 
-export async function ensureSecrets(options) {
+/**
+ * Decide which secret files are required for this run.
+ * @param {object} options CLI options
+ * @param {{ needSource?: boolean, needTarget?: boolean }} [force]
+ */
+export async function ensureSecrets(options, force = {}) {
   await mkdir(SECRETS_DIR, { recursive: true });
   await mkdir(STATE_DIR, { recursive: true });
 
-  if (!options.receiveOnly) {
-    if (!(await fileExists(options.sourceCurl))) {
-      throw new Error(
-        `Missing ${options.sourceCurl}\nCopy as cURL from account 1 → save to secrets/source.curl`,
-      );
-    }
+  const needSource =
+    force.needSource
+    ?? (
+      options.listProjects
+      || options.shareOnly
+      || options.dryRun
+      || options.projects
+      || options.projectsOnly
+      || (!options.receiveOnly && !options.createProjects)
+    );
+
+  const needTarget =
+    force.needTarget
+    ?? (
+      options.createProjects
+      || options.receiveOnly
+      || (!options.shareOnly && !options.dryRun && !options.listProjects)
+    );
+
+  if (needSource && !(await fileExists(options.sourceCurl))) {
+    throw new Error(
+      `Missing ${options.sourceCurl}\nCopy as cURL from account 1 → save to secrets/source.curl`,
+    );
   }
 
-  if (!options.shareOnly && !options.dryRun) {
-    if (!(await fileExists(options.targetCookies))) {
-      throw new Error(
-        `Missing ${options.targetCookies}\nPut account 2 cookies into secrets/target.cookies`,
-      );
-    }
+  if (needTarget && !(await fileExists(options.targetCookies))) {
+    throw new Error(
+      `Missing ${options.targetCookies}\nPut account 2 cookies into secrets/target.cookies`,
+    );
   }
 }
 

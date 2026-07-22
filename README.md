@@ -16,9 +16,11 @@ Local CLI to move ChatGPT conversations **from a source account (account 1) to a
 |------|----------|
 | List conversations on account 1 | Officially merge two accounts |
 | Bulk-create share links | Native full-sidebar import (official export ZIP) |
-| Claim shares → new chats in account 2 history | Transfer Plus, memories, GPTs, custom instructions |
-| Resume after failures (`migrate-state/`) | Bypass captcha / “verify you are human” |
-| Batch runs with pauses between batches | Guarantee ChatGPT APIs never change |
+| Claim shares → new chats in account 2 history | Transfer Plus, memories, custom GPTs (non-project) |
+| **List ChatGPT Projects + chats inside them** | 100% fidelity of project **files** / attachments |
+| **Create matching Projects on account 2** (name + instructions) | Bypass captcha / “verify you are human” |
+| **Assign claimed chats into those Projects** | Guarantee ChatGPT APIs never change |
+| Resume after failures (`migrate-state/`) | |
 
 **Official OpenAI path** (different from this tool): Export data → upload JSON as a **file reference** in a new chat — does not recreate separate sidebar threads.  
 See: [Transfer exported conversations](https://help.openai.com/en/articles/9106926-transfer-exported-conversations-between-chatgpt-accounts).
@@ -117,7 +119,7 @@ node tools/local-migrate/migrate.mjs --receive-only --max 1  # try one (headed)
 npm run migrate:recv
 ```
 
-### Full pipeline
+### Full pipeline (regular chats)
 
 ```bash
 # Safer (fewer rate limits)
@@ -133,6 +135,34 @@ node tools/local-migrate/migrate.mjs \
   --batch-pause-ms 20000
 ```
 
+### Projects (e.g. AIClip, EPLUS, Learn, …)
+
+Projects are first-class in ChatGPT (`g-p-*` gizmos). Flow:
+
+```bash
+# 1) List source projects + all chats inside them
+npm run migrate:list-projects
+# → migrate-state/projects.json
+
+# 2) Create empty matching projects on account 2 (name + instructions)
+npm run migrate:create-projects
+# → migrate-state/project-map.json  (source id → target id)
+
+# 3) Share only project chats
+node tools/local-migrate/migrate.mjs --projects-only --share-only
+
+# 4) Receive on account 2 and auto-assign into mapped projects
+node tools/local-migrate/migrate.mjs --receive-only
+```
+
+One-shot project chats (after secrets ready):
+
+```bash
+node tools/local-migrate/migrate.mjs --create-projects --projects-only
+```
+
+**Limits:** project **files** (uploads) are not copied yet; only project shell + chat threads via share/claim.
+
 ### npm scripts
 
 | Script | Action |
@@ -140,7 +170,10 @@ node tools/local-migrate/migrate.mjs \
 | `npm run migrate:dry` | Dry-run, max 10 |
 | `npm run migrate:share` | Share only |
 | `npm run migrate:recv` | Receive only |
-| `npm run migrate` | Share + receive |
+| `npm run migrate` | Share + receive (regular chats) |
+| `npm run migrate:list-projects` | Catalog source projects |
+| `npm run migrate:create-projects` | Create projects on target |
+| `npm run migrate:projects` | Share+receive project chats only |
 | `npm run check` | Syntax-check CLI modules |
 
 ---
@@ -161,6 +194,10 @@ node tools/local-migrate/migrate.mjs \
 | `--dry-run` | | List only |
 | `--share-only` | | Create shares only |
 | `--receive-only` | | Claim from `shares.json` only |
+| `--list-projects` | | List source projects → `projects.json` |
+| `--projects` | | Include project chats with regular chats |
+| `--projects-only` | | Only project chats |
+| `--create-projects` | | Create/map projects on target |
 | `--help` | | Show help |
 
 ---
@@ -171,6 +208,8 @@ node tools/local-migrate/migrate.mjs \
 |------|----------|
 | `migrate-state/shares.json` | Created share URLs |
 | `migrate-state/progress.json` | Per-conversation ok/fail |
+| `migrate-state/projects.json` | Source project catalog + chat ids |
+| `migrate-state/project-map.json` | Source project id → target project id |
 | `migrate-state/fail-*.png` | Receive failure screenshots |
 
 - **ok** → skipped on re-run  
@@ -230,7 +269,9 @@ Increase `--delay-ms` / `--batch-pause-ms`. Do not run two processes in parallel
         ├── chatgpt-api.js   # list / share APIs
         ├── state.js         # progress + shares files
         ├── share.js
-        └── receive.js       # Playwright claim
+        ├── receive.js       # Playwright claim
+        ├── projects.js      # list / create / map projects
+        └── auth.js          # target session from cookies
 ```
 
 ---

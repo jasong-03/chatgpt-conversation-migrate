@@ -16,6 +16,11 @@ export const DEFAULT_OPTIONS = {
   receiveOnly: false,
   max: 0,
   help: false,
+  // Projects
+  listProjects: false,
+  projects: false,
+  projectsOnly: false,
+  createProjects: false,
 };
 
 export function printUsage() {
@@ -23,11 +28,11 @@ export function printUsage() {
 Usage:
   node tools/local-migrate/migrate.mjs [options]
 
-Options:
+Core options:
   --source <path>       Source account curl file (default: secrets/source.curl)
   --target <path>       Target cookies file (default: secrets/target.cookies)
-  --limit <n>           Page size when listing (default API 28; 0 keeps default)
-  --offset <n>          Start offset for listing (default 0)
+  --limit <n>           Page size when listing regular chats (default API 28)
+  --offset <n>          Start offset for regular chat listing (default 0)
   --max <n>             Max conversations this run (0 = all)
   --delay-ms <n>        Delay between items (default 4000)
   --batch-size <n>      Items per batch before long pause (default 5)
@@ -39,10 +44,23 @@ Options:
   --receive-only        Claim links from migrate-state/shares.json only
   --help                Show help
 
+Projects:
+  --list-projects       List source projects + chat counts (writes projects.json)
+  --projects            Include project chats when sharing/migrating
+  --projects-only       Only project chats (skip regular /conversations list)
+  --create-projects     Create matching empty projects on target (name + instructions)
+
+Typical project flow:
+  1) --list-projects
+  2) --create-projects
+  3) --projects-only --share-only
+  4) --receive-only
+     (receive assigns claimed chats into mapped target projects)
+
 Setup:
   1) Account 1: Copy as cURL /backend-api/conversations → secrets/source.curl
   2) Account 2: Cookie header from chatgpt.com → secrets/target.cookies
-  3) npm install && node tools/local-migrate/migrate.mjs --max 1
+  3) npm install && node tools/local-migrate/migrate.mjs --list-projects
 `);
 }
 
@@ -100,6 +118,19 @@ export function parseArgs(argv) {
         break;
       case "--receive-only":
         options.receiveOnly = true;
+        break;
+      case "--list-projects":
+        options.listProjects = true;
+        break;
+      case "--projects":
+        options.projects = true;
+        break;
+      case "--projects-only":
+        options.projectsOnly = true;
+        options.projects = true;
+        break;
+      case "--create-projects":
+        options.createProjects = true;
         break;
       default:
         throw new Error(`Unknown arg: ${arg}`);

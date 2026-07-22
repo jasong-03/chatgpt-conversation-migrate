@@ -1,15 +1,18 @@
 {
   "name": "chatgpt-conversation-migrate",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Local CLI to migrate ChatGPT conversations between accounts via share links + Playwright.",
   "scripts": {
-    "check": "node --check tools/local-migrate/migrate.mjs && node --check tools/local-migrate/lib/cli.js && node --check tools/local-migrate/lib/curl.js && node --check tools/local-migrate/lib/cookies.js && node --check tools/local-migrate/lib/chatgpt-api.js && node --check tools/local-migrate/lib/state.js && node --check tools/local-migrate/lib/share.js && node --check tools/local-migrate/lib/receive.js && node --check tools/local-migrate/lib/util.js && node --check tools/local-migrate/lib/paths.js",
+    "check": "node --check tools/local-migrate/migrate.mjs && node --check tools/local-migrate/lib/cli.js && node --check tools/local-migrate/lib/curl.js && node --check tools/local-migrate/lib/cookies.js && node --check tools/local-migrate/lib/chatgpt-api.js && node --check tools/local-migrate/lib/state.js && node --check tools/local-migrate/lib/share.js && node --check tools/local-migrate/lib/receive.js && node --check tools/local-migrate/lib/util.js && node --check tools/local-migrate/lib/paths.js && node --check tools/local-migrate/lib/auth.js && node --check tools/local-migrate/lib/projects.js",
     "migrate:dry": "node tools/local-migrate/migrate.mjs --dry-run --max 10",
     "migrate:share": "node tools/local-migrate/migrate.mjs --share-only",
     "migrate:recv": "node tools/local-migrate/migrate.mjs --receive-only",
     "migrate": "node tools/local-migrate/migrate.mjs",
+    "migrate:list-projects": "node tools/local-migrate/migrate.mjs --list-projects",
+    "migrate:create-projects": "node tools/local-migrate/migrate.mjs --create-projects",
+    "migrate:projects": "node tools/local-migrate/migrate.mjs --projects-only",
     "postinstall": "npx playwright install chromium"
   },
   "dependencies": {

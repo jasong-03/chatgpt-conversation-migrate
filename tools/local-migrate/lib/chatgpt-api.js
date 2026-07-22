@@ -142,3 +142,117 @@ export async function checkSession(parsedCurl) {
   const session = await chatgptFetch(parsedCurl, "/api/auth/session");
   return session?.user?.email || session?.user?.name || "unknown";
 }
+
+/**
+ * List ChatGPT Projects (snorlax gizmos with g-p-* ids).
+ * Paginates via cursor when present.
+ */
+export async function listProjects(parsedCurl, { conversationsPerGizmo = 0 } = {}) {
+  const projects = [];
+  let cursor = null;
+
+  for (let page = 0; page < 50; page += 1) {
+    const query = { conversations_per_gizmo: conversationsPerGizmo };
+    if (cursor) query.cursor = cursor;
+
+    const data = await chatgptFetch(parsedCurl, "/backend-api/gizmos/snorlax/sidebar", {
+      query,
+    });
+    const items = Array.isArray(data?.items) ? data.items : [];
+
+    for (const item of items) {
+      const gizmo = item.gizmo?.gizmo || item.gizmo;
+      if (!gizmo?.id) continue;
+      // Projects use g-p- prefix; skip custom GPTs
+      if (!String(gizmo.id).startsWith("g-p-")) continue;
+
+      const display = gizmo.display || {};
+      projects.push({
+        id: gizmo.id,
+        name: display.name || gizmo.name || "(unnamed project)",
+        instructions: gizmo.instructions || "",
+        emoji: display.emoji || null,
+        theme: display.theme || null,
+        description: display.description || "",
+        shortUrl: gizmo.short_url || null,
+        updatedAt: gizmo.updated_at || null,
+      });
+    }
+
+    cursor = data?.cursor || null;
+    if (!cursor || items.length === 0) break;
+    await sleep(jitter(800));
+  }
+
+  return projects;
+}
+
+/**
+ * List all conversations inside a project (cursor pagination).
+ */
+export async function listProjectConversations(parsedCurl, projectId, { max = 0 } = {}) {
+  const items = [];
+  let cursor = null;
+
+  for (let page = 0; page < 200; page += 1) {
+    const query = { limit: 28 };
+    if (cursor) query.cursor = cursor;
+
+    const data = await chatgptFetch(
+      parsedCurl,
+      `/backend-api/gizmos/${projectId}/conversations`,
+      { query },
+    );
+    const pageItems = Array.isArray(data?.items) ? data.items : [];
+    for (const item of pageItems) {
+      if (!item?.id) continue;
+      items.push({
+        id: item.id,
+        title: item.title || "(untitled)",
+        projectId,
+        updateTime: item.update_time || null,
+      });
+      if (max > 0 && items.length >= max) return items;
+    }
+
+    cursor = data?.cursor || null;
+    if (!cursor || pageItems.length === 0) break;
+    await sleep(jitter(600));
+  }
+
+  return items;
+}
+
+/**
+ * Create a Project on the authenticated account.
+ * Body shape: POST /backend-api/projects { name, instructions }
+ */
+export async function createProject(parsedCurl, { name, instructions = "" }) {
+  const data = await chatgptFetch(parsedCurl, "/backend-api/projects", {
+    method: "POST",
+    body: {
+      name: String(name || "Untitled").slice(0, 120),
+      instructions: String(instructions || ""),
+    },
+  });
+  const id = data?.resource?.gizmo?.id || data?.gizmo?.id || data?.id;
+  if (!id) throw new Error(`create project failed: missing id in response`);
+  return {
+    id,
+    name: data?.resource?.gizmo?.display?.name || name,
+    raw: data,
+  };
+}
+
+/**
+ * Assign an existing conversation into a project (target account).
+ */
+export async function assignConversationToProject(parsedCurl, conversationId, projectId) {
+  return chatgptFetch(parsedCurl, `/backend-api/conversation/${conversationId}`, {
+    method: "PATCH",
+    body: {
+      gizmo_id: projectId,
+      conversation_template_id: projectId,
+    },
+  });
+}
