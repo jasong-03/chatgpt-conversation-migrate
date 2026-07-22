@@ -102,7 +102,12 @@ export async function runSharePhase(options) {
 
   for (let index = 0; index < items.length; index += 1) {
     const item = items[index];
-    const alreadyOk = progress.shared[item.id]?.ok && byConversationId.get(item.id)?.shareUrl;
+    const sharedState = progress.shared[item.id];
+    const alreadyOk = sharedState?.ok && byConversationId.get(item.id)?.shareUrl;
+    if (sharedState?.inaccessible || sharedState?.skip) {
+      console.log(`[share] skip inaccessible ${index + 1}/${items.length}: ${item.title}`);
+      continue;
+    }
 
     if (alreadyOk) {
       // Refresh project mapping on existing share records when available
@@ -156,13 +161,30 @@ export async function runSharePhase(options) {
       console.log(`  → ${share.shareUrl}`);
       createdThisRun += 1;
     } catch (error) {
+      const inaccessible =
+        error.code === "conversation_inaccessible"
+        || /conversation_inaccessible|don't have access|do not have access/i.test(error.message);
       console.error(`  ✗ ${error.message}`);
       progress.shared[item.id] = {
         ok: false,
         at: new Date().toISOString(),
         error: String(error.message).slice(0, 400),
+        inaccessible: Boolean(inaccessible),
+        skip: Boolean(inaccessible),
       };
       await saveProgress(progress);
+
+      if (inaccessible) {
+        // Workspace/shared-project chats not owned by this account — cannot share.
+        await waitBetweenItems({
+          index,
+          total: items.length,
+          batchSize: options.batchSize,
+          delayMs: Math.min(options.delayMs, 1500),
+          batchPauseMs: options.batchPauseMs,
+        });
+        continue;
+      }
 
       if (isRateLimitError(error)) {
         console.error("[share] rate limited — stop and re-run later with larger --batch-pause-ms");

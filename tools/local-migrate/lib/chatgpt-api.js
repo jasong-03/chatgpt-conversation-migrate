@@ -55,10 +55,15 @@ export async function chatgptFetch(parsedCurl, pathnameOrUrl, { method = "GET", 
   }
 
   if (!response.ok) {
-    const detail = json?.detail || json?.message || text.slice(0, 300);
+    const detailRaw = json?.detail ?? json?.message ?? text.slice(0, 300);
+    const detail =
+      typeof detailRaw === "string"
+        ? detailRaw
+        : (detailRaw?.message || detailRaw?.code || JSON.stringify(detailRaw));
     const error = new Error(`ChatGPT ${method} ${url.pathname} → ${response.status}: ${detail}`);
     error.status = response.status;
     error.payload = json;
+    error.code = detailRaw?.code || json?.code || null;
     throw error;
   }
 
